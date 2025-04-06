@@ -5,6 +5,7 @@ const logger = require('morgan');
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const mongoose = require('mongoose');
 
 const app = express();
 
@@ -15,6 +16,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+require('dotenv').config();
+
+
+// DB connection
+mongoose.connect(process.env.MONGO_URI, {useNewUrlParser: true,
+    useNewUrlParser: true,
+    // useCreateIndex: true,
+    useUnifiedTopology: true,
+        }).then(()=> {
+        console.log("Successfully Connected to the Database In the Cloud")
+    }).catch((err) =>{
+        console.log(err);
+    });
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
