@@ -4,7 +4,7 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 
 const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
+const registrationRouter = require('./routes/registration/users');
 const mongoose = require('mongoose');
 
 const app = express();
@@ -31,7 +31,7 @@ mongoose.connect(process.env.MONGO_URI, {useNewUrlParser: true,
     });
 
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/registration', registrationRouter);
 
 
 
