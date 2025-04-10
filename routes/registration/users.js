@@ -62,4 +62,46 @@ router.post("/register", async (req, res) => {
     }  
 })
 
+
+router.post("/login", async (req, res) => { 
+    try {
+        const {email, password} = req.body
+        
+        if(!email || !password) {
+            return res.status(400).json({success: false, error: 'Please fill all the fields'})
+        }
+
+        // check if user exists
+        const user = await User.findOne({email})
+        if(!user) {
+            return res.status(400).json({success: false, error: 'Invalid credentials'})
+        }
+
+        // check if password is correct
+        const isPasswordCorrect = await user.comparePassword(password)
+        if(!isPasswordCorrect) return res.status(400).json({message: "Invalid credentials"})
+
+        // generate token
+        const genToken = generateToken(user._id)
+
+        res.status(200).json({
+            genToken,
+            user: {
+                id: user._id,
+                fullName: user.fullName,
+                email: user.email,
+                city: user.city,
+                country: user.country,
+                phoneNumber: user.phoneNumber,
+                profileImage: user.profileImage
+            }
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({success: false, message: "Internal Error"})
+    }
+})
+
+
+
 module.exports = router;
