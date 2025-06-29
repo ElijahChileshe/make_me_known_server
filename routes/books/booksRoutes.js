@@ -65,4 +65,35 @@ router.get("/", authMiddleware, async (req, res) => {
         res.status(500).json({success: false, message: "Internal Error"})
     }
 })
+
+// delete house
+router.delete("/:id", authMiddleware, async (req, res) => {
+    try {
+        const house = await House.findById(req.params.id);
+        if(!house) {
+            return res.status(404).json({success: false, message: "House not found"})
+        }
+        // check if user is the creator
+        if(house.user.toString() !== req.user._id.toString()) {
+            return res.status(401).json({success: false, message: "Unauthorized"})
+        }
+
+        // delete house from cloudinary
+        if (house.image && house.image.includes("cloudinary")) {
+            try {
+                const publicId = house.image.split("/").pop().split(".")[0];
+                await cloudinary.uploader.destroy(publicId);
+                
+            } catch (error) {
+                console.log("error deleting image from cloudinary", error);
+            }
+        }
+        await house.deleteOne()
+        res.status(200).json({success: true, message: "House deleted successfully"})
+    } catch (error) {
+        console.log("error deleting record", error);
+        res.status(500).json({success: false, message: "Internal Error"})
+    }
+})
+
 module.exports = router;
