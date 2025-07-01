@@ -3,7 +3,7 @@ const bcrypt = require ('bcrypt');
 
 
 const UserSchema = new mongoose.Schema({
-  fullName: {
+  username: {
     type: String,
     required: true,
   },
@@ -14,7 +14,7 @@ const UserSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: Number,
-    required: true,
+    // required: true,
   },
   city: {
     type: String,

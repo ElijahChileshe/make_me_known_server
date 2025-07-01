@@ -66,6 +66,22 @@ router.get("/", authMiddleware, async (req, res) => {
     }
 })
 
+
+// get recommended houses by user
+router.get("/user", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const houses = await House.find({user: userId})
+            .sort({createdAt: -1}) // desc order
+            .populate("user", "fullName profileImage")
+        // res.status(200).json({success: true, houses})
+        res.send(houses)
+    } catch (error) {
+        console.log("error getting records", error);
+        res.status(500).json({success: false, message: "Internal Error"})
+    }
+})
+
 // delete house
 router.delete("/:id", authMiddleware, async (req, res) => {
     try {
@@ -83,7 +99,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
             try {
                 const publicId = house.image.split("/").pop().split(".")[0];
                 await cloudinary.uploader.destroy(publicId);
-                
+
             } catch (error) {
                 console.log("error deleting image from cloudinary", error);
             }

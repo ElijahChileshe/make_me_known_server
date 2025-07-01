@@ -12,11 +12,11 @@ const generateToken = (user_id) => {
 router.post("/register", async (req, res) => {
 
     try {
-      const {fullName, email, password, phoneNumber, city, country} = req.body;
+      const {username, email, password, phoneNumber, city, country} = req.body;
 
       console.log(req.body);
 
-      if(!fullName || !email || !password) {
+      if(!username || !email || !password) {
             return res.status(400).json({success: false, error: 'Please fill all the fields'})
       }
 
@@ -24,7 +24,7 @@ router.post("/register", async (req, res) => {
           return res.status(400).json({success: false, error: 'Password must be at least 6 characters'})
       }
 
-      if(fullName.length < 3) {
+      if(username.length < 3) {
           return res.status(400).json({success: false, error: 'Full name must be at least 3 characters'})
       }
 
@@ -36,10 +36,10 @@ router.post("/register", async (req, res) => {
         }
 
     // get profile image
-    const profileImage = `https://api.dicebear.com/7.x/avataaars/svg?seed=${fullName}`
+    const profileImage = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
 
       const user = new User({
-          fullName,
+          username,
           email,
           password,
           phoneNumber,
@@ -54,7 +54,7 @@ router.post("/register", async (req, res) => {
     //   generate token
       const token = generateToken(user._id)
       // res.send(user)
-      res.status(201).json({token: token,user: {fullName: user.fullName, email: user.email, id: user._id, city: user.city, country: user.country, phoneNumber: user.phoneNumber}})
+      res.status(201).json({token: token,user: {username: user.username, email: user.email, id: user._id, city: user.city, country: user.country, phoneNumber: user.phoneNumber}})
     } catch (error) {
 
         res.status(500).json({success: false, message: "Internal Error"})
@@ -88,7 +88,7 @@ router.post("/login", async (req, res) => {
             genToken,
             user: {
                 id: user._id,
-                fullName: user.fullName,
+                username: user.username,
                 email: user.email,
                 city: user.city,
                 country: user.country,

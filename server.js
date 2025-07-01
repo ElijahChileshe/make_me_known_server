@@ -6,7 +6,8 @@ const logger = require('morgan');
 const indexRouter = require('./routes/index');
 const registrationRouter = require('./routes/registration/users');
 const mongoose = require('mongoose');
-const booksRouter = require('./routes/books/books');
+const booksRouter = require('./routes/books/booksRoutes');
+const cors = require('cors');
 
 const app = express();
 
@@ -14,6 +15,7 @@ const port = process.env.PORT || 5000
 
 app.use(logger('dev'));
 app.use(express.json());
+app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
