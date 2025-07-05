@@ -82,10 +82,10 @@ router.post("/login", async (req, res) => {
         if(!isPasswordCorrect) return res.status(400).json({message: "Invalid credentials"})
 
         // generate token
-        const genToken = generateToken(user._id)
+        const token = generateToken(user._id)
 
         res.status(200).json({
-            genToken,
+            token,
             user: {
                 id: user._id,
                 username: user.username,
