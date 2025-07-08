@@ -5,35 +5,73 @@ const authMiddleware = require('../../middleware/auth.middleware');
 
 const router = express.Router();
 
-router.post("/", authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const {houseName, houseDescription, caption, rating, image} = req.body;
+// router.post("/", authMiddleware, async (req, res) => {
+//     try {
+//         const userId = req.user._id;
+//         const {houseName, houseDescription, caption, rating, image} = req.body;
 
-        if(!houseName || !houseDescription || !caption || !rating || !image) {
-            return res.status(400).json({success: false, error: 'Please fill all the fields'})
-        }
+//         if(!houseName || !houseDescription || !caption || !rating || !image) {
+//             return res.status(400).json({success: false, error: 'Please fill all the fields'})
+//         }
 
-        const uploadResponse = await cloudinary.uploader.upload(image);
-        const imageUrl = uploadResponse.secure_url;
+//         const uploadResponse = await cloudinary.uploader.upload(image);
+//         const imageUrl = uploadResponse.secure_url;
 
-        const house = new House({
-            houseName,
-            houseDescription,
-            caption,
-            rating,
-            user: userId,
-            image: imageUrl
-        })
+//         const house = new House({
+//             houseName,
+//             houseDescription,
+//             caption,
+//             rating,
+//             user: userId,
+//             image: imageUrl
+//         })
  
-        await house.save()
+//         await house.save()
 
-        res.status(201).json({success: true, house})
+//         res.status(201).json({success: true, house})
+//     } catch (error) {
+//         console.log("error creating record", error);
+//         res.status(500).json({success: false, message: "Internal Error"})
+//     }
+// })
+
+router.post("/register", authMiddleware, async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const { houseDescription, caption, price, images } = req.body;
+  
+      if (!houseDescription || !caption || !price || !images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
+      }
+  
+      // Upload all images to Cloudinary
+      const uploadedImages = await Promise.all(
+        images.map(async (base64Img) => {
+          const uploadRes = await cloudinary.uploader.upload(base64Img);
+          return uploadRes.secure_url;
+        })
+      );
+  
+      const house = new House({
+        houseDescription,
+        caption,
+        price,
+        user: userId,
+        images: uploadedImages, // store all image URLs
+      });
+  
+      await house.save();
+      console.log(house);
+      
+  
+      res.status(201).json({ success: true, house });
+  
     } catch (error) {
-        console.log("error creating record", error);
-        res.status(500).json({success: false, message: "Internal Error"})
+      console.error("Error creating record:", error);
+      res.status(500).json({ success: false, message: "Internal Server Error" });
     }
-})
+  });
+  
 
 
 
