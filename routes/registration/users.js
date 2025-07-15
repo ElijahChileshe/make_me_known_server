@@ -1,6 +1,7 @@
 var express = require('express');
 const User = require('../../models/UserModel');
 const jwt = require('jsonwebtoken');
+const authMiddleware = require('../../middleware/auth.middleware');
 
 var router = express.Router();
 
@@ -63,44 +64,108 @@ router.post("/register", async (req, res) => {
 })
 
 
+// router.post("/login", async (req, res) => { 
+//     try {
+//         const {email, password} = req.body
+        
+//         if(!email || !password) {
+//             return res.status(400).json({success: false, error: 'Please fill all the fields'})
+//         }
+
+//         // check if user exists
+//         const user = await User.findOne({email})
+//         if(!user) {
+//             return res.status(400).json({success: false, error: 'Invalid credentials'})
+//         }
+
+//         // check if password is correct
+//         const isPasswordCorrect = await user.comparePassword(password)
+//         if(!isPasswordCorrect) return res.status(400).json({message: "Invalid credentials"})
+
+//         // generate token
+//         const token = generateToken(user._id)
+
+//         res.status(200).json({
+//             token,
+//             user: {
+//                 id: user._id,
+//                 username: user.username,
+//                 email: user.email,
+//                 city: user.city,
+//                 country: user.country,
+//                 phoneNumber: user.phoneNumber,
+//                 profileImage: user.profileImage
+//             }
+//         })
+//     } catch (error) {
+//         console.log(error);
+//         res.status(500).json({success: false, message: "Internal Error"})
+//     }
+// })
+
 router.post("/login", async (req, res) => { 
     try {
-        const {email, password} = req.body
-        
-        if(!email || !password) {
-            return res.status(400).json({success: false, error: 'Please fill all the fields'})
-        }
-
-        // check if user exists
-        const user = await User.findOne({email})
-        if(!user) {
-            return res.status(400).json({success: false, error: 'Invalid credentials'})
-        }
-
-        // check if password is correct
-        const isPasswordCorrect = await user.comparePassword(password)
-        if(!isPasswordCorrect) return res.status(400).json({message: "Invalid credentials"})
-
-        // generate token
-        const token = generateToken(user._id)
-
-        res.status(200).json({
-            token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                city: user.city,
-                country: user.country,
-                phoneNumber: user.phoneNumber,
-                profileImage: user.profileImage
-            }
-        })
+      const { email, password, expoPushToken } = req.body;
+  
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: 'Please fill all the fields' });
+      }
+  
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ success: false, error: 'Invalid credentials' });
+      }
+  
+      const isPasswordCorrect = await user.comparePassword(password);
+      if (!isPasswordCorrect) return res.status(400).json({ message: "Invalid credentials" });
+  
+      // Save/update expoPushToken if provided
+      if (expoPushToken) {
+        user.expoPushToken = expoPushToken;
+        await user.save();
+      }
+  
+      const token = generateToken(user._id);
+  
+      res.status(200).json({
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          city: user.city,
+          country: user.country,
+          phoneNumber: user.phoneNumber,
+          profileImage: user.profileImage,
+          expoPushToken: user.expoPushToken,
+        },
+      });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({success: false, message: "Internal Error"})
+      console.log(error);
+      res.status(500).json({ success: false, message: "Internal Error" });
     }
-})
+  });
+
+
+  router.post("/logout", authMiddleware, async (req, res) => {
+    try {
+      const userId = req.user._id; // assuming you get user ID from auth middleware
+  
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(400).json({ success: false, message: "User not found" });
+      }
+  
+      user.expoPushToken = null; // or [] if you used an array of tokens
+      await user.save();
+  
+      res.status(200).json({ success: true, message: "Logged out successfully" });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ success: false, message: "Internal Error" });
+    }
+  });
+  
 
 
 

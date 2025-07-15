@@ -30,7 +30,11 @@ const UserSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: ""
-  }
+  },
+  expoPushToken: {
+    type: [String],
+    default: null,
+  },
 }, {
   timestamps: { createdAt: true, updatedAt: true },
 });
