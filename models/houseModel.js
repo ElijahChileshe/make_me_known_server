@@ -10,8 +10,16 @@ const houseSchema = new mongoose.Schema({
         type: String,
         // required: true,
     },
-    caption: {
+    area: {
         type: String,
+    },
+    phoneNumber: {
+        type: String,
+    },
+    visibility: {
+        type: String,
+        enum: ["on", "off"],
+        default: "on"
     },
     // rating: {
     //     type: Number,

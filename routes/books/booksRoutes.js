@@ -8,9 +8,9 @@ const router = express.Router();
 // router.post("/", authMiddleware, async (req, res) => {
 //     try {
 //         const userId = req.user._id;
-//         const {houseName, houseDescription, caption, rating, image} = req.body;
+//         const {houseName, houseDescription, area, rating, image} = req.body;
 
-//         if(!houseName || !houseDescription || !caption || !rating || !image) {
+//         if(!houseName || !houseDescription || !area || !rating || !image) {
 //             return res.status(400).json({success: false, error: 'Please fill all the fields'})
 //         }
 
@@ -20,7 +20,7 @@ const router = express.Router();
 //         const house = new House({
 //             houseName,
 //             houseDescription,
-//             caption,
+//             area,
 //             rating,
 //             user: userId,
 //             image: imageUrl
@@ -38,9 +38,9 @@ const router = express.Router();
 router.post("/register", authMiddleware, async (req, res) => {
     try {
       const userId = req.user._id;
-      const { houseDescription, caption, price, images } = req.body;
+      const { houseDescription, area, price, images, phoneNumber } = req.body;
   
-      if (!houseDescription || !caption || !price || !images || !Array.isArray(images) || images.length === 0) {
+      if (!houseDescription || !area || !price || !images || !phoneNumber || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
       }
   
@@ -54,8 +54,9 @@ router.post("/register", authMiddleware, async (req, res) => {
   
       const house = new House({
         houseDescription,
-        caption,
+        area,
         price,
+        phoneNumber,
         user: userId,
         images: uploadedImages, // store all image URLs
       });
@@ -75,34 +76,45 @@ router.post("/register", authMiddleware, async (req, res) => {
 
 
 
-router.get("/", authMiddleware, async (req, res) => {
+  router.get("/houses", authMiddleware, async (req, res) => {
     try {
 
-        const page = req.query.page || 1;
-        const limit = req.query.limit || 5;
-        const skip = (page - 1) * limit;
+          
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 5;
+            const skip = (page - 1) * limit;
+        
+            console.log("📥 Request received:", { page, limit, skip });
+        
+            const filter = { visibility: 'on' };
+        
+            const houses = await House.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate("user", "username email profileImage");
+        
+            const total = await House.countDocuments(filter);
+            const totalPages = Math.ceil(total / limit);
+        
+            console.log("✅ Houses found:", houses, "Total pages:", totalPages);
 
 
-        const houses = await House.find()
-            .sort({createdAt: -1}) // desc order
-            .skip(skip)
-            .limit(limit)
-            .populate("user", "fullName profileImage")
-        // res.status(200).json({success: true, houses})
-
-        const total = await House.countDocuments();
-        const totalPages = Math.ceil(total / limit);
-        res.send({
-            houses,
-            currentPage: page,
-            totalHouses: total,
-            totalPages      
-        })
+        
+            res.status(200).json({
+                houses,
+                currentPage: page,
+                totalHouses: total,
+                totalPages
+            });
+  
     } catch (error) {
-        console.log("error getting records", error);
-        res.status(500).json({success: false, message: "Internal Error"})
+      console.error("❌ Error getting records:", error);
+      res.status(500).json({ success: false, message: "Internal Server Error" });
     }
-})
+  });
+  
+  
 
 
 // get recommended houses by user
@@ -121,7 +133,7 @@ router.get("/user", authMiddleware, async (req, res) => {
 })
 
 // delete house
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/house/:id", authMiddleware, async (req, res) => {
     try {
         const house = await House.findById(req.params.id);
         if(!house) {
@@ -133,9 +145,9 @@ router.delete("/:id", authMiddleware, async (req, res) => {
         }
 
         // delete house from cloudinary
-        if (house.image && house.image.includes("cloudinary")) {
+        if (house.images && house.images.includes("cloudinary")) {
             try {
-                const publicId = house.image.split("/").pop().split(".")[0];
+                const publicId = house.images.split("/").pop().split(".")[0];
                 await cloudinary.uploader.destroy(publicId);
 
             } catch (error) {
@@ -149,5 +161,76 @@ router.delete("/:id", authMiddleware, async (req, res) => {
         res.status(500).json({success: false, message: "Internal Error"})
     }
 })
+
+
+// get single house:
+
+router.get("/house/:id", authMiddleware, async (req, res) => {
+    console.log("Accessing", req.params.id);
+    try {
+
+      const house = await House.findOne({ _id: req.params.id, user: req.user._id });
+  
+      if (!house) {
+        return res.status(404).json({ success: false, message: "House not found" });
+      }
+  
+      res.status(200).json(house);
+    } catch (error) {
+      console.error("Error fetching house:", error);
+      res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+  });
+
+  router.patch("/house/:id", authMiddleware, async (req, res) => {
+    try {
+        
+      const { price, area, houseDescription, images } = req.body;
+  
+      const house = await House.findOneAndUpdate(
+        { _id: req.params.id, user: req.user._id },
+        { price, area, houseDescription, images },
+        { new: true }
+      );
+  
+      if (!house) {
+        return res.status(404).json({ success: false, message: "House not found or unauthorized" });
+      }
+
+  
+      res.status(200).json(house);
+    } catch (error) {
+      console.error("Error updating house:", error);
+      res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+  });
+
+  router.patch("/house/:id/visibility", authMiddleware, async (req, res) => {
+    try {
+      const { visibility } = req.body;
+  
+      if (!["on", "off"].includes(visibility)) {
+        return res.status(400).json({ success: false, message: "Invalid visibility value" });
+      }
+  
+      const house = await House.findOneAndUpdate(
+        { _id: req.params.id, user: req.user._id },
+        { visibility },
+        { new: true }
+      );
+  
+      if (!house) {
+        return res.status(404).json({ success: false, message: "House not found or unauthorized" });
+      }
+  
+      res.status(200).json({ success: true, house });
+    } catch (error) {
+      console.error("Error updating visibility:", error);
+      res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+  });
+  
+  
+  
 
 module.exports = router;
