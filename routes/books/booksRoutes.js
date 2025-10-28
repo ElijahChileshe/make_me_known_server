@@ -2,6 +2,7 @@ const express = require('express');
 const House = require('../../models/houseModel');
 const cloudinary = require('../../lib/cloudinary');
 const authMiddleware = require('../../middleware/auth.middleware');
+const User = require('../../models/UserModel');
 
 const router = express.Router();
 
@@ -36,43 +37,50 @@ const router = express.Router();
 // })
 
 router.post("/register", authMiddleware, async (req, res) => {
-    try {
-      const userId = req.user._id;
-      const { houseDescription, area, price, images, phoneNumber } = req.body;
-  
-      if (!houseDescription || !area || !price || !images || !phoneNumber || !Array.isArray(images) || images.length === 0) {
-        return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
-      }
-  
-      // Upload all images to Cloudinary
-      const uploadedImages = await Promise.all(
-        images.map(async (base64Img) => {
-          const uploadRes = await cloudinary.uploader.upload(base64Img);
-          return uploadRes.secure_url;
-        })
-      );
-  
-      const house = new House({
-        houseDescription,
-        area,
-        price,
-        phoneNumber,
-        user: userId,
-        images: uploadedImages, // store all image URLs
-      });
-  
-      await house.save();
-      console.log(house);
-      
-  
-      res.status(201).json({ success: true, house });
-  
-    } catch (error) {
-      console.error("Error creating record:", error);
-      res.status(500).json({ success: false, message: "Internal Server Error" });
+  try {
+    const userId = req.user._id;
+    const { houseDescription, area, price, images, phoneNumber } = req.body;
+
+    if (
+      !houseDescription || !area || !price || !images || !phoneNumber ||
+      !Array.isArray(images) || images.length === 0
+    ) {
+      return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
     }
-  });
-  
+
+    // ✅ Upload all images to Cloudinary
+    const uploadedImages = await Promise.all(
+      images.map(async (base64Img) => {
+        const uploadRes = await cloudinary.uploader.upload(base64Img);
+        return uploadRes.secure_url;
+      })
+    );
+
+    // ✅ Save house to DB
+    const house = new House({
+      houseDescription,
+      area,
+      price,
+      phoneNumber,
+      user: userId,
+      images: uploadedImages,
+    });
+
+    await house.save();
+    console.log("🏠 House saved:", house);
+
+    // ✅ Send notification to all users
+    const message = `New Listing: ${area} - ZMW ${price}`;
+    await sendPushToAllUsers('📢 New House Added', message);
+
+    res.status(201).json({ success: true, house });
+
+  } catch (error) {
+    console.error("❌ Error creating record:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
 
 
 
@@ -98,8 +106,6 @@ router.post("/register", authMiddleware, async (req, res) => {
             const totalPages = Math.ceil(total / limit);
         
             console.log("✅ Houses found:", houses, "Total pages:", totalPages);
-
-
         
             res.status(200).json({
                 houses,
@@ -107,6 +113,8 @@ router.post("/register", authMiddleware, async (req, res) => {
                 totalHouses: total,
                 totalPages
             });
+
+
   
     } catch (error) {
       console.error("❌ Error getting records:", error);
@@ -229,7 +237,50 @@ router.get("/house/:id", authMiddleware, async (req, res) => {
       res.status(500).json({ success: false, message: "Internal Server Error" });
     }
   });
+
+
+  const { Expo } = require('expo-server-sdk');
+  const expo = new Expo();
   
+  async function sendPushToAllUsers(title, message) {
+    try {
+      const users = await User.find({ expoPushToken: { $ne: null } });
+  
+      const messages = [];
+  
+      for (const user of users) {
+        const pushToken = Array.isArray(user.expoPushToken)
+          ? user.expoPushToken[0]
+          : user.expoPushToken;
+  
+        if (!Expo.isExpoPushToken(pushToken)) {
+          console.log(`❌ Invalid token skipped: ${pushToken}`);
+          continue;
+        }
+  
+        messages.push({
+          to: pushToken,
+          sound: 'default',
+          title: title,
+          body: message,
+          data: { screen: 'Homes' }, // optional
+        });
+      }
+  
+      const chunks = expo.chunkPushNotifications(messages);
+      const tickets = [];
+  
+      for (const chunk of chunks) {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
+      }
+  
+      console.log('✅ Push notification tickets:', tickets);
+    } catch (error) {
+      console.error('❌ Error sending push notifications:', error);
+    }
+  }
+    
   
   
 

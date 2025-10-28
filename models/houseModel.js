@@ -21,12 +21,6 @@ const houseSchema = new mongoose.Schema({
         enum: ["on", "off"],
         default: "on"
     },
-    // rating: {
-    //     type: Number,
-    //     required: true,
-    //     min: 1,
-    //     max: 5,
-    // },
     user: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

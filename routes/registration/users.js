@@ -106,6 +106,9 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => { 
     try {
       const { email, password, expoPushToken } = req.body;
+
+      console.log("login info", req.body);
+      
   
       if (!email || !password) {
         return res.status(400).json({ success: false, error: 'Please fill all the fields' });
