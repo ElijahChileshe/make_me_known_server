@@ -5,6 +5,7 @@ const authMiddleware  = require("../../middleware/auth.middleware"); // your aut
 
 // GET user notifications
 router.get("/", authMiddleware, async (req, res) => {
+    console.log("hit no");
   try {
     const userId = req.user._id;
     let notification = await Notification.findOne({ user: userId });
@@ -12,6 +13,7 @@ router.get("/", authMiddleware, async (req, res) => {
       // Create default settings if not exist
       notification = await Notification.create({ user: userId });
     }
+    console.log("Notifications settings:", notification);
     res.json({ success: true, data: notification });
   } catch (err) {
     console.error(err);
@@ -21,6 +23,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 // POST update notifications
 router.post("/", authMiddleware, async (req, res) => {
+    console.log("post notification");
   try {
     const userId = req.user._id;
     const { preferences, areas } = req.body;
@@ -33,7 +36,9 @@ router.post("/", authMiddleware, async (req, res) => {
     notification.preferences = preferences || notification.preferences;
     notification.areas = areas || notification.areas;
 
-    await notification.save();
+    const updatedNotification = await notification.save();
+
+    console.log("Updated notification settings:", updatedNotification);
 
     res.json({ success: true, message: "Notification settings saved", data: notification });
   } catch (err) {

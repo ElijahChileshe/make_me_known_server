@@ -3,6 +3,7 @@ const House = require('../../models/houseModel');
 const cloudinary = require('../../lib/cloudinary');
 const authMiddleware = require('../../middleware/auth.middleware');
 const User = require('../../models/UserModel');
+const notificationModel = require('../../models/notificationModel');
 
 const router = express.Router();
 
@@ -35,6 +36,51 @@ const router = express.Router();
 //         res.status(500).json({success: false, message: "Internal Error"})
 //     }
 // })
+
+// router.post("/register", authMiddleware, async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     const { houseDescription, area, price, images, phoneNumber } = req.body;
+
+//     if (
+//       !houseDescription || !area || !price || !images || !phoneNumber ||
+//       !Array.isArray(images) || images.length === 0
+//     ) {
+//       return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
+//     }
+
+//     // ✅ Upload all images to Cloudinary
+//     const uploadedImages = await Promise.all(
+//       images.map(async (base64Img) => {
+//         const uploadRes = await cloudinary.uploader.upload(base64Img);
+//         return uploadRes.secure_url;
+//       })
+//     );
+
+//     // ✅ Save house to DB
+//     const house = new House({
+//       houseDescription,
+//       area,
+//       price,
+//       phoneNumber,
+//       user: userId,
+//       images: uploadedImages,
+//     });
+
+//     await house.save();
+//     console.log("🏠 House saved:", house);
+
+//     // ✅ Send notification to all users
+//     const message = `New Listing: ${area} - ZMW ${price}`;
+//     await sendPushToAllUsers('📢 New House Added', message);
+
+//     res.status(201).json({ success: true, house });
+
+//   } catch (error) {
+//     console.error("❌ Error creating record:", error);
+//     res.status(500).json({ success: false, message: "Internal Server Error" });
+//   }
+// });
 
 router.post("/register", authMiddleware, async (req, res) => {
   try {
@@ -69,9 +115,30 @@ router.post("/register", authMiddleware, async (req, res) => {
     await house.save();
     console.log("🏠 House saved:", house);
 
-    // ✅ Send notification to all users
-    const message = `New Listing: ${area} - ZMW ${price}`;
-    await sendPushToAllUsers('📢 New House Added', message);
+    // ✅ Send notification only to users with matching area preferences
+    const notifications = await notificationModel.find({
+      "areas.name": area,
+      "areas.enabled": true,
+    }).populate("user");
+
+    for (const notif of notifications) {
+      const user = notif.user;
+      if (!user.expoPushToken || user.expoPushToken.length === 0) continue;
+
+      for (const token of user.expoPushToken) {
+        await fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: token,
+            sound: "default",
+            title: `📢 New House in ${house.area}!`,
+            body: `${houseDescription.slice(0, 50)}... ZMW ${price}`,
+            data: { houseId: house._id },
+          }),
+        });
+      }
+    }
 
     res.status(201).json({ success: true, house });
 
@@ -80,6 +147,7 @@ router.post("/register", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
+
 
 
 
