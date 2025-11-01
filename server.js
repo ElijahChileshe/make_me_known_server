@@ -7,6 +7,7 @@ const indexRouter = require('./routes/index');
 const registrationRouter = require('./routes/registration/users');
 const mongoose = require('mongoose');
 const booksRouter = require('./routes/books/booksRoutes');
+const notificationsRouter = require('./routes/notifications/notifications');
 const cors = require('cors');
 
 const app = express();
@@ -38,6 +39,8 @@ mongoose.connect(process.env.MONGO_URI, {useNewUrlParser: true,
 app.use('/', indexRouter);
 app.use('/registration', registrationRouter);
 app.use('/books', booksRouter)
+app.use('/notifications', notificationsRouter)
+
 
 
 
