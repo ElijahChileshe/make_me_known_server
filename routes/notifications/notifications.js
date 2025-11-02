@@ -47,4 +47,26 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
+// GET unread notifications count
+router.get("/unreadCount", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const notificationDoc = await Notification.findOne({ user: userId });
+
+    if (!notificationDoc) {
+      return res.json({ success: true, data: { count: 0 } });
+    }
+
+    const unreadCount = notificationDoc.notifications.filter(n => !n.read).length;
+    console.log("unread count", unreadCount)
+    res.json({ success: true, data: { count: unreadCount } });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
 module.exports = router;

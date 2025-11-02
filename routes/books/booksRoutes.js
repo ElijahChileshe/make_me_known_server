@@ -7,94 +7,18 @@ const notificationModel = require('../../models/notificationModel');
 
 const router = express.Router();
 
-// router.post("/", authMiddleware, async (req, res) => {
-//     try {
-//         const userId = req.user._id;
-//         const {houseName, houseDescription, area, rating, image} = req.body;
 
-//         if(!houseName || !houseDescription || !area || !rating || !image) {
-//             return res.status(400).json({success: false, error: 'Please fill all the fields'})
-//         }
-
-//         const uploadResponse = await cloudinary.uploader.upload(image);
-//         const imageUrl = uploadResponse.secure_url;
-
-//         const house = new House({
-//             houseName,
-//             houseDescription,
-//             area,
-//             rating,
-//             user: userId,
-//             image: imageUrl
-//         })
- 
-//         await house.save()
-
-//         res.status(201).json({success: true, house})
-//     } catch (error) {
-//         console.log("error creating record", error);
-//         res.status(500).json({success: false, message: "Internal Error"})
-//     }
-// })
-
-// router.post("/register", authMiddleware, async (req, res) => {
-//   try {
-//     const userId = req.user._id;
-//     const { houseDescription, area, price, images, phoneNumber } = req.body;
-
-//     if (
-//       !houseDescription || !area || !price || !images || !phoneNumber ||
-//       !Array.isArray(images) || images.length === 0
-//     ) {
-//       return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
-//     }
-
-//     // ✅ Upload all images to Cloudinary
-//     const uploadedImages = await Promise.all(
-//       images.map(async (base64Img) => {
-//         const uploadRes = await cloudinary.uploader.upload(base64Img);
-//         return uploadRes.secure_url;
-//       })
-//     );
-
-//     // ✅ Save house to DB
-//     const house = new House({
-//       houseDescription,
-//       area,
-//       price,
-//       phoneNumber,
-//       user: userId,
-//       images: uploadedImages,
-//     });
-
-//     await house.save();
-//     console.log("🏠 House saved:", house);
-
-//     // ✅ Send notification to all users
-//     const message = `New Listing: ${area} - ZMW ${price}`;
-//     await sendPushToAllUsers('📢 New House Added', message);
-
-//     res.status(201).json({ success: true, house });
-
-//   } catch (error) {
-//     console.error("❌ Error creating record:", error);
-//     res.status(500).json({ success: false, message: "Internal Server Error" });
-//   }
-// });
 
 router.post("/register", authMiddleware, async (req, res) => {
   try {
     const userId = req.user._id;
     const { houseDescription, area, price, images, phoneNumber } = req.body;
 
-    if (
-      !houseDescription || !area || !price || !images || !phoneNumber ||
-      !Array.isArray(images) || images.length === 0
-    ) {
-      return res.status(400).json({ success: false, error: 'Please fill all the fields and upload at least one image.' });
+    if (!houseDescription || !area || !price || !images || !phoneNumber || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ success: false, error: 'Please fill all fields and upload at least one image.' });
     }
 
-    // ✅ Upload all images to Cloudinary
+    // Upload images
     const uploadedImages = await Promise.all(
       images.map(async (base64Img) => {
         const uploadRes = await cloudinary.uploader.upload(base64Img);
@@ -102,8 +26,8 @@ router.post("/register", authMiddleware, async (req, res) => {
       })
     );
 
-    // ✅ Save house to DB
-    const house = new House({
+    // Save the house
+    const house = await House.create({
       houseDescription,
       area,
       price,
@@ -112,31 +36,40 @@ router.post("/register", authMiddleware, async (req, res) => {
       images: uploadedImages,
     });
 
-    await house.save();
     console.log("🏠 House saved:", house);
 
-    // ✅ Send notification only to users with matching area preferences
-    const notifications = await notificationModel.find({
+    // Find users with matching preferences
+    const usersWithPrefs = await notificationModel.find({
       "areas.name": area,
       "areas.enabled": true,
     }).populate("user");
 
-    for (const notif of notifications) {
-      const user = notif.user;
-      if (!user.expoPushToken || user.expoPushToken.length === 0) continue;
+    // Push notification into each user's notifications array
+    for (const notif of usersWithPrefs) {
+      notif.notifications.push({
+        title: `📢 New House in ${house.area}!`,
+        body: `${houseDescription.slice(0, 50)}... ZMW ${price}`,
+        data: { houseId: house._id },
+        read: false,
+      });
+      await notif.save();
 
-      for (const token of user.expoPushToken) {
-        await fetch("https://exp.host/--/api/v2/push/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: token,
-            sound: "default",
-            title: `📢 New House in ${house.area}!`,
-            body: `${houseDescription.slice(0, 50)}... ZMW ${price}`,
-            data: { houseId: house._id },
-          }),
-        });
+      // Optional: send push notifications if user has expoPushToken
+      const user = notif.user;
+      if (user.expoPushToken && user.expoPushToken.length > 0) {
+        for (const token of user.expoPushToken) {
+          await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: token,
+              sound: "default",
+              title: `📢 New House in ${house.area}!`,
+              body: `${houseDescription.slice(0, 50)}... ZMW ${price}`,
+              data: { houseId: house._id },
+            }),
+          });
+        }
       }
     }
 
@@ -147,6 +80,7 @@ router.post("/register", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
+
 
 
 
